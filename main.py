@@ -8,23 +8,23 @@ jokes = ["Как называют человека, который продал 
 ,"Почему шутить можно над всеми, кроме безногих?\nШутки про них обычно не заходят", "Почему безногий боится гопников?\n"
 "Не может постоять за себя." , "Почему толстых женщин не берут в стриптиз?\n"
 "Они перегибают палку.","Почему в Африке так много болезней?\n Потому что таблетки нужно запивать водой.","Что сказал слепой, войдя в бар?\n"
-"Всем привет, кого не видел", "Чего общего у некрофила и владельца строительной кампании?\nОни оба имеют недвижимость.", "Почему цыган не отправляют на олимпиаду?\nОни заберут все золото."]
+"Всем привет, кого не видел", "Чего общего у некрофила и владельца строительной кампании?\nОни оба имеют недвижимость.", "Почему цыган не отправляют на олимпиаду?\nОни заберут все золото.", "—Врач приходит к пациенту в палату и говорит:\n— Больной, у меня для вас две новости — хорошая и плохая. С какой начать?\n— Доктор, давайте с хорошей.\n— Эту болезнь назовут вашим именем.",
+"— Не знаю, что делать. Тараканы замучали. Всюду шастают — покоя нет.\n— А ты купи мелок для тараканов.\n— А что, помогает?\n— Конечно. Видишь — сидят в углу, рисуют…",
+"В Чечню привезли шоу с крокодилами. Было ну очень страшно...\nНо, переборов страх, ... крокодилы все-таки выступили.", "Москва. Две узбечки ведут детей в школу.\nОдна спрашивает у другой:\n— Ну как вам новая школа?\n— Очень хорошая, только русских много.",
+"Программист жене по телефону:\n— Дорогая, мне посуду мыть или ты вернёшься и сама помоешь?\n— Хорошо мой любимый.\nПрограммист впал в ступор т. к. не смог выбрать из «хорошо, мой любимый», «хорошо, мой, любимый» и «хорошо мой, любимый»."]
 bot = telebot.TeleBot(config.TG_API_TOKEN)
 
-# @bot.message_handler(commands=['start'])
-# def send_welcome(message):
-# 	bot.reply_to(message, "Как дела?")
-	
 @bot.message_handler(commands=['start'])
 def start(message):
     markup = types.InlineKeyboardMarkup()
     button1 = types.InlineKeyboardButton("Сайт болота", url='https://nti.urfu.ru/')
     markup.add(button1)
-    bot.send_message(message.chat.id, "Привет, {0.first_name}! Нажми на кнопку и перейди на моё болото)".format(message.from_user), reply_markup=markup)
+    bot.send_message(message.chat.id, "Привет, {0.first_name}! Нажми на кнопку и перейди на моё болото)".format(message.from_user), reply_markup=markup) 
     markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     btn1 = types.KeyboardButton("👋 Поприветствовать")
     btn2 = types.KeyboardButton("❓ Задать вопрос")
-    markup.add(btn1, btn2) 
+    markup.add(btn1, btn2)
+    bot.send_message(message.chat.id, "Выберите что вы хотите сделать", reply_markup=markup)
 
 @bot.message_handler(commands=['rnd'])
 def random_number(message):
@@ -40,7 +40,7 @@ def send_help(message):
     btn_about = types.InlineKeyboardButton("/about", callback_data='show_about')
     markup.add(btn_start, btn_rnd, btn_math, btn_joke, btn_about)
     bot.send_message(message.chat.id, "Выберите нужную команду, чтобы вывести описание", reply_markup=markup)
-@bot.callback_query_handler(func=lambda call: True)
+@bot.callback_query_handler(func=lambda call: call.data in ['show_start', 'show_rnd', 'show_math', 'show_joke', 'show_about'])
 def answer(call):
     if call.data == 'show_start':
         bot.send_message(call.message.chat.id, "/start — Команда для приветствия")
@@ -53,7 +53,6 @@ def answer(call):
     elif call.data == 'show_about':
         bot.send_message(call.message.chat.id, "/about — Команда для вывода информации об разработчике")
 
-
 @bot.message_handler(commands=['about'])
 def send_about(message):
     markup = types.InlineKeyboardMarkup()
@@ -63,7 +62,11 @@ def send_about(message):
 
 @bot.message_handler(commands=['joke'])
 def send_joke(message):
-    bot.reply_to(message, jokes[random.randint(0, len(jokes) - 1)])
+    joke = jokes[random.randint(0, len(jokes) - 1)]
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    btn_repeat = types.KeyboardButton("Скажи другую шутку")
+    markup.add(btn_repeat)
+    bot.send_message(message.chat.id, joke, reply_markup=markup)
 
 @bot.message_handler(commands=['math'])
 def math(message):
@@ -83,17 +86,38 @@ def math(message):
         b = a * x * c
         equation = f"{a}x * {c} = {b}"
         solution = b // (a * c)  # Решение для x
-    bot.send_message(message.chat.id, f"{equation} <tg-spoiler>  Ответ x = {solution} </tg-spoiler>", parse_mode='HTML')
+    options = [solution, solution + random.randint(1, 10), solution - random.randint(1, 10), solution + random.randint(11, 20)]
+    random.shuffle(options) 
+    markup = types.InlineKeyboardMarkup()
+    for option in options:
+        markup.add(types.InlineKeyboardButton(str(option), callback_data=f'answer_{option}_{solution}'))
+    bot.send_message(message.chat.id, f"{equation} <tg-spoiler>  Ответ x = {solution} </tg-spoiler>", parse_mode='HTML', reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith('answer_'))
+def check_answer(call):
+    try:
+        _, user_answer, correct_answer = call.data.split('_')
+        user_answer = int(user_answer)
+        correct_answer = int(correct_answer)
+        if user_answer == correct_answer:
+            bot.answer_callback_query(call.id, "Правильно! ✅")
+        else:
+            bot.answer_callback_query(call.id, "Неправильно. Попробуйте снова! ❌")
+    except (IndexError, ValueError):
+        bot.answer_callback_query(call.id, "Ошибка обработки ответа")
+
 
 @bot.message_handler(content_types=['text'])
 def func(message):
-    if(message.text == "👋 Поприветствовать"):
+    if message.text == "Скажи другую шутку":
+        send_joke(message)  # Вызов функции send_joke для повторного показа шутки
+    elif(message.text == "👋 Поприветствовать"):
         bot.send_message(message.chat.id, text="Ну привет, как делишки?")
     elif(message.text == "❓ Задать вопрос"):
         markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
         btn1 = types.KeyboardButton("Как меня зовут?")
         btn2 = types.KeyboardButton("Что я могу?")
-        btn3 = types.KeyboardButton("Как я?")
+        btn3 = types.KeyboardButton("Как ты?")
         btn4 = types.KeyboardButton("Что нового?")
         btn5 = types.KeyboardButton("Что делаешь?")
         back = types.KeyboardButton("Вернуться в главное меню")
